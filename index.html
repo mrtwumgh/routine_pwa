@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Daily Routine</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#12263A">
+<style>
+:root{--bg:#F1F5F8;--card:#fff;--ink:#12263A;--mute:#5B7080;--line:#D8E2E9;--sun:#E8962A;--ok:#2F7D5C;--late:#B5483F}
+@media(prefers-color-scheme:dark){:root{--bg:#0D1822;--card:#15283A;--ink:#E7EEF4;--mute:#92A5B4;--line:#23394C;--sun:#F2A94A;--ok:#4DB88D;--late:#E07A6E}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:max(16px,env(safe-area-inset-top)) 16px max(32px,env(safe-area-inset-bottom))}
+main{max-width:560px;margin:auto}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+h1{font-size:1.3rem;margin:0;letter-spacing:-.01em}
+.sub{color:var(--mute);font-size:.9rem;margin:0}
+#gear{width:44px;height:44px;border:1px solid var(--line);border-radius:12px;background:none;color:var(--ink);font-size:1.15rem}
+.track{position:relative;height:6px;background:var(--line);border-radius:3px;margin:18px 0 6px}
+#fill{height:100%;background:var(--sun);border-radius:3px}
+#sun{position:absolute;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--sun);box-shadow:0 0 0 6px color-mix(in srgb,var(--sun) 25%,transparent)}
+.hero{background:var(--ink);color:var(--bg);border-radius:20px;padding:20px;margin:20px 0 8px}
+.hero h2{margin:0 0 4px;font-size:1.6rem;letter-spacing:-.02em}
+.hero p{margin:4px 0;opacity:.85}
+.hero .meta{color:var(--sun);opacity:1;font-weight:600}
+.big{margin-top:14px;width:100%;min-height:48px;border:0;border-radius:14px;background:var(--sun);color:#12263A;font-weight:700;font-size:1rem;font-family:inherit}
+ul{list-style:none;margin:0;padding:0}
+li button{all:unset;box-sizing:border-box;display:grid;grid-template-columns:46px 26px 1fr 24px;gap:8px;align-items:start;width:100%;padding:12px 10px;border-bottom:1px solid var(--line);cursor:pointer}
+li button:focus-visible,.big:focus-visible,#gear:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+time{font-variant-numeric:tabular-nums;color:var(--mute);font-size:.9rem;padding-top:2px}
+.tx b{display:block}.tx small{color:var(--mute)}
+.ck{width:22px;height:22px;border:2px solid var(--line);border-radius:50%;margin-top:2px}
+.done .ck{background:var(--ok);border-color:var(--ok)}
+.done .ck::after{content:"✓";display:block;color:#fff;font-size:.8rem;text-align:center;line-height:18px}
+.done .tx{opacity:.5;text-decoration:line-through}
+.now button{background:color-mix(in srgb,var(--sun) 14%,transparent);box-shadow:inset 4px 0 var(--sun);border-radius:6px}
+.missed .ck{border-color:var(--late)}.missed time{color:var(--late)}
+dialog{border:0;border-radius:18px;padding:20px;width:min(92vw,420px);background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:1rem;margin:12px 0}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.row button{flex:1 1 40%;min-height:44px;border-radius:10px;border:1px solid var(--line);background:none;color:var(--ink);font-size:.95rem;font-family:inherit}
+#save{background:var(--sun)!important;color:#12263A!important;border-color:var(--sun)!important;font-weight:700}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+#toast.on{opacity:1}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head>
+<body><main>
+<header><div><h1 id="date"></h1><p class="sub" id="count"></p></div><button id="gear" aria-label="Reminder settings">⚙</button></header>
+<div class="track" aria-hidden="true"><div id="fill"></div><span id="sun"></span></div>
+<section class="hero" id="hero" aria-live="polite"></section>
+<ul id="list"></ul>
+<dialog id="dlg"><h3 style="margin:0 0 6px">Reminders</h3>
+<p class="sub">Pick a private ntfy topic, subscribe to it in the ntfy app, and enter it here. Today's and tomorrow's reminders are scheduled each time you open this app.</p>
+<input id="topic" placeholder="your-private-topic" autocapitalize="off" autocomplete="off" spellcheck="false">
+<div class="row"><button id="save">Save and schedule</button><button id="test">Send test</button><button id="reset">Reset today</button><button id="close">Close</button></div></dialog>
+<div id="toast" role="status"></div>
+</main>
+<script>
+// Edit your routine here: [time, icon, title, note, days (0=Sun..6=Sat), important?]
+const A='0123456',W='12345',E='06';
+const R=[
+['05:00','💧','Wake up','Drink a full glass of water, brush your teeth, make your bed.',A],
+['05:15','📚','Learning block','Phone away. One topic, 75 minutes, while it is quiet.',A],
+['06:30','🧹','Morning chores','30 minutes: dishes, sweep, tidy up, take out the trash.',A],
+['07:00','🍳','Breakfast','Sit down and eat a proper meal: protein plus carbs.',A,1],
+['08:15','💪','Workout','Warm up for 2 minutes, then do your plan. Start small and build up.',A,1],
+['08:45','🥛','Post-workout snack','Protein within the hour: eggs, milk, peanuts or a banana. Drink water.',A,1],
+['09:00','🚿','Shower and skincare','Shower, then do your morning skincare steps.',A],
+['09:30','🧺','Laundry','Wash and hang everything so it dries before evening.',E],
+['09:30','🧺','Laundry (optional)','Friday laundry day. Skip it if your clothes are fine.','5'],
+['09:30','☕','Free time','Rest, reply to messages, or learn a little more.','1234'],
+['10:00','🎒','Get ready for work','Charge your laptop and phone, set up your desk, fill your water bottle.',W],
+['10:30','😴','Nap','30 minutes. Set an alarm so you are fully awake before work.',W],
+['10:30','☕','Free time','Rest, hobbies, or build something.',E],
+['11:15','🍛','Lunch','Eat a full meal before you log on.',W,1],
+['12:00','💻','Work starts','Log on. Keep water within reach.',W],
+['12:30','🍛','Lunch','Eat a full meal.',E,1],
+['13:15','🛋️','Free time','Rest, hobbies, or catch up with people.',E],
+['14:00','🧘','Water and stretch','Stand up, drink water, stretch your neck and shoulders for 5 minutes.',W],
+['14:00','🛒','Groceries and meal prep','Buy the next days of food and prep a few meals so eating is easy.','6'],
+['15:30','🍽️','Mid-shift meal','Step away from the screen and eat something real.',W,1],
+['16:00','🥜','Snack','Something with protein, and water.',E,1],
+['17:45','💧','Water and rest your eyes','Drink water, look far away for a minute, walk around.',W],
+['19:00','🗓️','Weekly reset','Review the week, plan the next one, check your goals.','0'],
+['19:30','🍲','Dinner','Eat a proper dinner.',E,1],
+['20:00','✅','Work ends','Close the laptop. You are done for the day.',W],
+['20:15','🍲','Dinner','Eat a proper dinner, not just a snack.',W,1],
+['20:15','🛋️','Free time','Relax. No chores, no studying.',E],
+['20:45','🛋️','Free time','Relax. No work, no studying.',W],
+['21:15','🌙','Wind down','Night skincare, brush your teeth, lay out tomorrow\'s clothes, phone away from the bed.',A],
+['21:45','🛌','Lights out','Sleep now so you get 7 hours before 5am.',A,1]
+];
+const $=s=>document.querySelector(s),S=localStorage,pad=n=>String(n).padStart(2,'0');
+const dk=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const mins=t=>+t.slice(0,2)*60+ +t.slice(3);
+const items=d=>R.filter(r=>r[4].includes(d.getDay())).sort((a,b)=>mins(a[0])-mins(b[0]));
+const key=r=>r[0]+r[2];
+const get=()=>{try{return JSON.parse(S.getItem('d-'+dk(new Date()))||'{}')}catch(e){return{}}};
+const fmt=m=>m>=60?Math.floor(m/60)+' h '+(m%60)+' min':m+' min';
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2800)}
+function toggle(id){const d=get();d[id]?delete d[id]:d[id]=1;S.setItem('d-'+dk(new Date()),JSON.stringify(d));render()}
+function render(){
+ const now=new Date(),L=items(now),dn=get(),nm=now.getHours()*60+now.getMinutes();
+ let c=-1;L.forEach((r,i)=>{if(mins(r[0])<=nm)c=i});
+ const a=mins(L[0][0]),b=mins(L[L.length-1][0]),p=Math.max(0,Math.min(100,(nm-a)/(b-a)*100));
+ $('#date').textContent=now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+ $('#count').textContent=L.filter(r=>dn[key(r)]).length+' of '+L.length+' done';
+ $('#fill').style.width=p+'%';$('#sun').style.left=p+'%';
+ const h=$('#hero');
+ if(c<0){h.innerHTML='<h2>Rest up</h2><p>First up at '+L[0][0]+': '+L[0][2]+'.</p>'}
+ else{const r=L[c],x=L[c+1];
+  h.innerHTML=`<h2>${r[1]} ${r[2]}</h2><p>${r[3]}</p><p class="meta">${x?fmt(mins(x[0])-nm)+' left, next: '+x[0]+' '+x[2]:'Last one of the day. Sleep well.'}</p><button class="big" id="hb">${dn[key(r)]?'Undo':'Mark done'}</button>`;
+  $('#hb').onclick=()=>toggle(key(r))}
+ $('#list').innerHTML=L.map((r,i)=>{const id=key(r),d=dn[id];return`<li class="${i==c?'now ':''}${d?'done ':''}${i<c&&!d?'missed':''}"><button data-id="${id}" aria-pressed="${!!d}"><time>${r[0]}</time><span>${r[1]}</span><span class="tx"><b>${r[2]}</b><small>${r[3]}</small></span><i class="ck"></i></button></li>`}).join('');
+}
+const post=o=>fetch('https://ntfy.sh/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)});
+async function schedule(loud){
+ const t=S.getItem('topic');if(!t){if(loud)toast('Add your ntfy topic first');return}
+ let n=0;
+ try{for(let k=0;k<2;k++){
+  const d=new Date();d.setDate(d.getDate()+k);const f='n-'+dk(d);if(S.getItem(f)==t)continue;
+  for(const r of items(d)){
+   const at=new Date(d.getFullYear(),d.getMonth(),d.getDate(),+r[0].slice(0,2),+r[0].slice(3));
+   if(at-Date.now()<30000)continue;
+   await post({topic:t,title:r[1]+' '+r[2],message:r[3],priority:r[5]?4:3,delay:String(Math.floor(at/1000))});n++}
+  S.setItem(f,t)}
+  if(loud||n)toast(n?n+' reminders scheduled':'Reminders are already scheduled')}
+ catch(e){if(loud)toast('Could not reach ntfy. Check your connection.')}
+}
+$('#list').onclick=e=>{const b=e.target.closest('button');if(b)toggle(b.dataset.id)};
+$('#gear').onclick=()=>{$('#topic').value=S.getItem('topic')||'';$('#dlg').showModal()};
+$('#close').onclick=()=>$('#dlg').close();
+$('#save').onclick=()=>{S.setItem('topic',$('#topic').value.trim());$('#dlg').close();schedule(true)};
+$('#test').onclick=async()=>{const t=$('#topic').value.trim();if(!t)return toast('Enter a topic first');
+ try{await post({topic:t,title:'Routine test',message:'Reminders are working.'});toast('Test sent')}catch(e){toast('Could not reach ntfy')}};
+$('#reset').onclick=()=>{S.removeItem('d-'+dk(new Date()));$('#dlg').close();render()};
+render();schedule();
+const cr=document.querySelector('.now');if(cr)cr.scrollIntoView({block:'center'});
+setInterval(render,30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){render();schedule()}});
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+</script></body></html>

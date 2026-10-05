@@ -1,0 +1,15 @@
+{
+  "name": "Daily Routine",
+  "short_name": "Routine",
+  "description": "Your day from 5am to lights out, with reminders so you never miss a meal.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12263A",
+  "theme_color": "#12263A",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
