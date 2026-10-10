@@ -6,7 +6,7 @@ import { loadState, update, st } from "./js/state.js";
 import { syncReminders, snoozeTag, itemFromTag } from "./js/sync.js";
 import { dateKey, hhmm } from "./js/util.js";
 
-const CACHE = "routine-v4";
+const CACHE = "routine-v5";
 const FILES = [
   "./",
   "index.html",
@@ -30,6 +30,7 @@ const FILES = [
 ];
 
 const SNOOZE_MINUTES = 15;
+const STATE_WAIT_MS = 3000; // longest a push waits for storage before showing the reminder anyway
 
 // ---------- install, update, offline ----------
 
@@ -78,6 +79,15 @@ async function refreshPages() {
   for (const w of windows) w.postMessage({ type: "state-changed" });
 }
 
+/** Reject if a promise takes longer than `ms`, so a stalled step can't block what comes after it. */
+function withTimeout(promise, ms) {
+  let timer;
+  const limit = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("timed out")), ms);
+  });
+  return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
+}
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {
@@ -91,11 +101,15 @@ self.addEventListener("push", (event) => {
 async function onPush(data) {
   const tag = data.tag || "routine";
   let item = null;
+  let stateReady = false;
   try {
-    await loadState({ create: false });
+    // Storage can stall (not just fail) when the app is open or frozen in the background.
+    // Never let that stop the reminder: after STATE_WAIT_MS, show it without the buttons.
+    await withTimeout(loadState({ create: false }), STATE_WAIT_MS);
+    stateReady = true;
     item = st ? itemFromTag(st.routine, tag) : null;
   } catch {
-    /* storage unavailable: still show the reminder */
+    /* storage unavailable or too slow: still show the reminder */
   }
 
   await self.registration.showNotification(data.title || "Daily Routine", {
@@ -117,7 +131,8 @@ async function onPush(data) {
 
   // Housekeeping after every push: drop a snooze that just went off, then re-sync, which
   // removes one-offs from past days and applies today's day off. Only writes if something changed.
-  if (!st) return;
+  // Skipped when storage didn't answer in time; the next push or app open catches up.
+  if (!stateReady || !st) return;
   try {
     if (tag.includes("~z")) {
       await update((s) => {
